@@ -5,6 +5,15 @@
   const statusEl = document.getElementById("status");
   const algoPanels = document.getElementById("algoPanels");
   const searchBox = document.getElementById("searchBox");
+  const alternativesPanel = document.getElementById("alternativesPanel");
+  const selectedNameEl = document.getElementById("selectedName");
+  const selectedCompositionEl = document.getElementById("selectedComposition");
+  const selectedPackEl = document.getElementById("selectedPack");
+  const selectedPriceEl = document.getElementById("selectedPrice");
+  const selectedFormLabelEl = document.getElementById("selectedFormLabel");
+  const sameFormFilter = document.getElementById("sameFormFilter");
+  const altCountEl = document.getElementById("altCount");
+  const alternativesList = document.getElementById("alternativesList");
 
   const ALGO_IDS = [
     "prefix",
@@ -18,6 +27,8 @@
   let activeIndex = -1;
   let lastCombined = [];
   let requestId = 0;
+  let altRequestId = 0;
+  let selectedMedicineName = "";
 
   function setStatus(text, loading) {
     statusEl.textContent = text;
@@ -68,10 +79,113 @@
       .join("");
   }
 
+  function hideAlternatives() {
+    alternativesPanel.hidden = true;
+    altRequestId++;
+    selectedMedicineName = "";
+  }
+
+  function formatPriceDisplay(priceDisplay, price) {
+    if (priceDisplay) return priceDisplay;
+    if (price != null && !Number.isNaN(Number(price))) {
+      return `₹${Number(price).toFixed(2)}`;
+    }
+    return "";
+  }
+
+  function renderAlternatives(data) {
+    if (!data.found) {
+      selectedNameEl.textContent = data.selected;
+      selectedCompositionEl.textContent = "Medicine not found in dataset.";
+      selectedPackEl.textContent = "";
+      selectedPriceEl.textContent = "";
+      selectedFormLabelEl.textContent = "—";
+      altCountEl.textContent = "";
+      alternativesList.innerHTML = "";
+      alternativesPanel.hidden = false;
+      return;
+    }
+
+    selectedNameEl.textContent = data.selected;
+    selectedCompositionEl.textContent = data.composition
+      ? `Composition: ${data.composition}`
+      : "Composition: not available";
+    selectedPackEl.textContent = data.pack_size_label
+      ? `Pack: ${data.pack_size_label}`
+      : "";
+    const priceText = formatPriceDisplay(data.price_display, data.price);
+    selectedPriceEl.textContent = priceText ? `Price: ${priceText}` : "";
+    selectedFormLabelEl.textContent = data.form_label || data.form || "—";
+    if (sameFormFilter) {
+      sameFormFilter.checked = data.same_form !== false;
+    }
+
+    const total = data.same_form
+      ? (data.total_matching_form ?? data.alternatives.length)
+      : (data.total_alternatives ?? data.alternatives.length);
+    const shown = data.alternatives.length;
+    const filterNote = data.same_form ? " (same form)" : " (all forms)";
+    altCountEl.textContent = total
+      ? `${total} alternative(s) found${filterNote}${shown < total ? ` — showing ${shown}` : ""}`
+      : data.same_form
+        ? "No alternatives with the same composition, dosage, and form."
+        : "No alternatives with the same composition and dosage.";
+
+    if (!data.alternatives.length) {
+      alternativesList.innerHTML = '<li class="empty">No alternatives found</li>';
+    } else {
+      alternativesList.innerHTML = data.alternatives
+        .map((alt) => {
+          const altPrice = formatPriceDisplay(alt.price_display, alt.price);
+          const formBadge = alt.form_label ? `<span class="form-badge">${escapeHtml(alt.form_label)}</span>` : "";
+          const priceBadge = altPrice ? `<span class="price-badge">${escapeHtml(altPrice)}</span>` : "";
+          return `<li data-name="${escapeHtml(alt.name)}">
+              <span class="alt-row-top">
+                <span class="name">${escapeHtml(alt.name)}</span>
+                ${priceBadge}
+              </span>
+              <span class="meta">${formBadge}${formBadge && alt.pack_size_label ? " · " : ""}${escapeHtml(alt.pack_size_label || "")}</span>
+            </li>`;
+        })
+        .join("");
+    }
+    alternativesPanel.hidden = false;
+  }
+
+  async function fetchAlternatives(name) {
+    selectedMedicineName = name;
+    const id = ++altRequestId;
+    alternativesPanel.hidden = false;
+    selectedNameEl.textContent = name;
+    selectedCompositionEl.textContent = "Loading alternatives…";
+    selectedPackEl.textContent = "";
+    selectedPriceEl.textContent = "";
+    altCountEl.textContent = "";
+    alternativesList.innerHTML = "";
+
+    try {
+      const params = new URLSearchParams({
+        name,
+        limit: "20",
+        same_form: sameFormFilter && sameFormFilter.checked ? "1" : "0",
+      });
+      const res = await fetch(`/api/alternatives?${params}`);
+      if (!res.ok) throw new Error(res.statusText);
+      const data = await res.json();
+      if (id !== altRequestId) return;
+      renderAlternatives(data);
+    } catch (err) {
+      if (id !== altRequestId) return;
+      selectedCompositionEl.textContent = `Error: ${err.message}`;
+      alternativesList.innerHTML = "";
+    }
+  }
+
   function applySelection(name) {
     input.value = name;
     combinedList.hidden = true;
     clearBtn.hidden = false;
+    fetchAlternatives(name);
   }
 
   async function fetchSuggestions(q) {
@@ -116,6 +230,7 @@
       requestId++;
       combinedList.hidden = true;
       algoPanels.hidden = true;
+      hideAlternatives();
       ALGO_IDS.forEach((k) => renderAlgoPanel(k, []));
       setStatus("Type to search — suggestions update as you type.");
       return;
@@ -169,8 +284,21 @@
   clearBtn.addEventListener("click", () => {
     input.value = "";
     clearBtn.hidden = true;
+    hideAlternatives();
     scheduleSearch();
     input.focus();
+  });
+
+  alternativesList.addEventListener("click", (e) => {
+    const li = e.target.closest("li[data-name]");
+    if (!li || li.classList.contains("empty")) return;
+    applySelection(li.dataset.name);
+  });
+
+  sameFormFilter.addEventListener("change", () => {
+    if (selectedMedicineName) {
+      fetchAlternatives(selectedMedicineName);
+    }
   });
 
   document.addEventListener("click", (e) => {

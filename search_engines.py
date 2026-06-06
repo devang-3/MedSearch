@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
+from alternatives import AlternativeIndex
 from paths import BASE_DIR, DATASET_PATH
 
 
@@ -30,6 +31,7 @@ class SearchEngines:
     keyboard: Any
     substring: Any
     dmetaphone: Any
+    alternatives: AlternativeIndex
     _pool: ThreadPoolExecutor = field(default_factory=lambda: ThreadPoolExecutor(max_workers=5))
 
     @classmethod
@@ -41,24 +43,27 @@ class SearchEngines:
         print(f"Loaded {len(names):,} medicine names.", flush=True)
 
         prefix_mod = _load_module("prefix", "prefix.py")
-        print("  [1/5] Prefix trie...", flush=True)
+        print("  [1/6] Prefix trie...", flush=True)
         trie = prefix_mod.build_trie(names)
 
         fuzzy_mod = _load_module("fuzzy_ngram", "fuzzy_n-gram.py")
-        print("  [2/5] Fuzzy n-gram index...", flush=True)
+        print("  [2/6] Fuzzy n-gram index...", flush=True)
         fuzzy_idx = fuzzy_mod.build_index(names)
 
         key_mod = _load_module("key", "key.py")
-        print("  [3/5] Keyboard / Damerau–Levenshtein index...", flush=True)
+        print("  [3/6] Keyboard / Damerau–Levenshtein index...", flush=True)
         key_idx = key_mod.build_index(names)
 
         dm_mod = _load_module("double_metaphone", "double_metaphone.py")
-        print("  [4/5] Double Metaphone index...", flush=True)
+        print("  [4/6] Double Metaphone index...", flush=True)
         dm_idx = dm_mod.build_index(names)
 
         sub_mod = _load_module("substring_trigram", "sub-string-tri.py")
-        print("  [5/5] Substring index (trigram)...", flush=True)
+        print("  [5/6] Substring index (trigram)...", flush=True)
         sub_idx = sub_mod.build_index(names)
+
+        print("  [6/6] Alternatives index (composition)...", flush=True)
+        alt_idx = AlternativeIndex.build(DATASET_PATH, name_filter=names)
 
         print("All search engines ready.\n", flush=True)
         return cls(
@@ -69,6 +74,7 @@ class SearchEngines:
             keyboard=key_idx,
             substring=sub_idx,
             dmetaphone=dm_idx,
+            alternatives=alt_idx,
         )
 
     def _display_name(self, name: str) -> str:
@@ -171,3 +177,14 @@ class SearchEngines:
 
         clean_algos = {k: v for k, v in results.items() if not k.startswith("_")}
         return {"query": q, "combined": combined, "algorithms": clean_algos}
+
+    def find_alternatives(
+        self,
+        name: str,
+        limit: int = 20,
+        same_form: bool = True,
+    ) -> dict:
+        canonical = self._display_name(name)
+        return self.alternatives.find_alternatives(
+            canonical, limit=limit, same_form=same_form
+        )

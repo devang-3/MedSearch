@@ -61,6 +61,28 @@
         </article>
       </div>
     </section>
+
+    <section class="alternatives-panel" id="alternativesPanel" hidden>
+      <h2 class="section-title">Selected medicine</h2>
+      <article class="selected-card" id="selectedCard">
+        <h3 id="selectedName"></h3>
+        <p class="selected-meta" id="selectedComposition"></p>
+        <p class="selected-meta" id="selectedPack"></p>
+        <p class="selected-meta" id="selectedPrice"></p>
+      </article>
+
+      <h2 class="section-title alt-title">Alternatives <span class="badge">Same composition &amp; dosage</span></h2>
+      <div class="alt-controls">
+        <label class="form-filter">
+          <input type="checkbox" id="sameFormFilter" checked />
+          Same form only (<span id="selectedFormLabel">—</span>)
+        </label>
+        <span class="sort-note">Sorted by price (low → high)</span>
+      </div>
+      <p class="alt-count" id="altCount"></p>
+      <ul class="alternatives-list" id="alternativesList"></ul>
+      <p class="alt-disclaimer">Alternatives matched on salt composition and strength from dataset. Verify with a pharmacist before switching medicines.</p>
+    </section>
   </div>
 
   <script src="{{ url_for('static', filename='medicine_search.js') }}"></script>

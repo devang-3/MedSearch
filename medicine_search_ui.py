@@ -16,6 +16,7 @@ from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request
 
+from alternatives import parse_bool
 from search_engines import SearchEngines
 
 APP_DIR = Path(__file__).resolve().parent
@@ -46,6 +47,21 @@ def api_suggest():
 
     data = engines.search_all(query, per_algo=per_algo, combined_limit=combined_limit)
     return jsonify(data)
+
+
+@app.route("/api/alternatives")
+def api_alternatives():
+    if engines is None:
+        return jsonify({"error": "Search engines not loaded"}), 503
+
+    name = request.args.get("name", "").strip()
+    limit = min(int(request.args.get("limit", 20)), 50)
+    same_form = parse_bool(request.args.get("same_form"), default=True)
+
+    if not name:
+        return jsonify({"error": "name parameter required"}), 400
+
+    return jsonify(engines.find_alternatives(name, limit=limit, same_form=same_form))
 
 
 @app.route("/api/health")

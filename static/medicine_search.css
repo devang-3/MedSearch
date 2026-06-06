@@ -250,6 +250,148 @@ body {
   color: var(--muted);
 }
 
+.alternatives-panel {
+  margin-top: 40px;
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.selected-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow);
+}
+
+.selected-card h3 {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.selected-meta {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.alt-title {
+  margin-top: 8px;
+}
+
+.alt-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin-bottom: 10px;
+}
+
+.form-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.form-filter input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.sort-note {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.alt-count {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+
+.alternatives-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.alternatives-list li {
+  padding: 12px 18px;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.alternatives-list li:last-child {
+  border-bottom: none;
+}
+
+.alternatives-list li:hover {
+  background: var(--accent-soft);
+}
+
+.alternatives-list .alt-row-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.alternatives-list .name {
+  font-size: 0.92rem;
+  flex: 1;
+}
+
+.alternatives-list .price-badge {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #059669;
+  white-space: nowrap;
+}
+
+.alternatives-list .form-badge {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.alternatives-list .meta {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.alternatives-list .empty {
+  cursor: default;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.alternatives-list .empty:hover {
+  background: transparent;
+}
+
+.alt-disclaimer {
+  margin: 14px 0 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.4;
+}
+
 @media (max-width: 600px) {
   .page {
     padding-top: 28px;
