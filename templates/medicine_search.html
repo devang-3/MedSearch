@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Medicine Search</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='medicine_search.css') }}" />
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="logo">Med<span>Search</span></h1>
+      <p class="tagline">Prefix · Fuzzy · Keyboard · Substring · Double Metaphone</p>
+    </header>
+
+    <div class="search-wrap">
+      <div class="search-box" id="searchBox">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 14 15.5l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+        </svg>
+        <input
+          type="search"
+          id="searchInput"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="Search medicine name (e.g. augmentin, *cillin*, asprin)"
+          aria-label="Search medicines"
+          aria-autocomplete="list"
+          aria-controls="combinedList"
+        />
+        <button type="button" id="clearBtn" class="clear-btn" hidden aria-label="Clear">×</button>
+      </div>
+
+      <ul class="combined-dropdown" id="combinedList" role="listbox" hidden></ul>
+    </div>
+
+    <p class="status" id="status">Type to search — suggestions update as you type.</p>
+
+    <section class="algo-panels" id="algoPanels" hidden>
+      <h2 class="section-title">Suggestions by algorithm</h2>
+      <div class="panels-grid">
+        <article class="panel" data-algo="prefix">
+          <h3>Prefix <span class="badge">Trie</span></h3>
+          <ul class="panel-list" id="list-prefix"></ul>
+        </article>
+        <article class="panel" data-algo="fuzzy_ngram">
+          <h3>Fuzzy <span class="badge">N-gram</span></h3>
+          <ul class="panel-list" id="list-fuzzy_ngram"></ul>
+        </article>
+        <article class="panel" data-algo="keyboard_dl">
+          <h3>Keyboard <span class="badge">Damerau–Levenshtein</span></h3>
+          <ul class="panel-list" id="list-keyboard_dl"></ul>
+        </article>
+        <article class="panel" data-algo="double_metaphone">
+          <h3>Phonetic <span class="badge">Double Metaphone</span></h3>
+          <ul class="panel-list" id="list-double_metaphone"></ul>
+        </article>
+        <article class="panel panel-wide" data-algo="substring">
+          <h3>Substring <span class="badge">Trigram</span></h3>
+          <ul class="panel-list" id="list-substring"></ul>
+        </article>
+      </div>
+    </section>
+  </div>
+
+  <script src="{{ url_for('static', filename='medicine_search.js') }}"></script>
+</body>
+</html>
