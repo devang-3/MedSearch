@@ -1,54 +1,183 @@
 # MedSearch
 
-A multi-algorithm medicine search application supporting prefix matching, fuzzy search, keyboard-aware typo correction, substring search, and phonetic matching via Double Metaphone.
+**A two-stage medicine intelligence system for Indian drug names.**
 
-## Features
+MedSearch does more than autocomplete brand names. Stage 1 runs five classic string-matching structures in parallel and shows *how* each algorithm retrieved a result. Stage 2 maps the selected medicine to a composition signature and surfaces cheaper same-salt, same-dose alternatives — with form filtering and price-ranked results.
 
-- **Prefix Search** (Trie): Fast prefix matching with alphabetical sorting
-- **Fuzzy Search** (N-gram): Approximate matching using Jaccard similarity on character n-grams
-- **Keyboard Search** (Damerau–Levenshtein): Find medicines with typos considering QWERTY keyboard proximity
-- **Substring Search** (Trigram): Contains search with wildcard support (`*text*`)
-- **Double Metaphone**: Phonetic matching for medicine names
+Built for typo-tolerant brand lookup and generic substitution discovery over a real-world catalogue of **250,000+** Indian medicines.
 
-## Setup
+---
+
+## Highlights
+
+| Capability | Approach |
+|------------|----------|
+| Autocomplete & prefix match | Trie |
+| Fuzzy / approximate match | Character n-gram index + Jaccard |
+| Keyboard typo correction | Damerau–Levenshtein with QWERTY-weighted cost |
+| Phonetic match | Double Metaphone |
+| Substring / contains search | Inverted trigram index (`*cillin*`) |
+| Cheaper alternatives | Composition signature index + form filter + price sort |
+
+---
+
+## How it works
+
+```
+User query
+    │
+    ▼
+┌─────────────────────────────────────┐
+│  Stage 1 — Multi-algorithm search   │
+│  Trie · N-gram · Keyboard DL ·      │
+│  Metaphone · Trigram (parallel)     │
+└─────────────────────────────────────┘
+    │
+    ▼  user selects a medicine
+┌─────────────────────────────────────┐
+│  Stage 2 — Alternative finder       │
+│  Parse composition + dosage         │
+│  → signature index lookup           │
+│  → filter by form (tablet/syrup…)   │
+│  → rank by price (low → high)       │
+└─────────────────────────────────────┘
+```
+
+**Example:** Selecting *Augmentin 625 Duo Tablet* (₹223.42) can surface tablet alternatives with the same Amoxicillin 500 mg + Clavulanic Acid 125 mg composition — including lower-priced options such as *Apcil Tablet* (₹6.98).
+
+---
+
+## Quick start
+
+### Prerequisites
+
+- Python 3.10+
+- pip
+
+### Install
 
 ```bash
 cd MedSearch
 pip install -r requirements-search.txt
 ```
 
-## Usage
+### Run the web UI
 
 ```bash
-# Web UI (default)
 python medicine_search_ui.py
-
-# Then open http://127.0.0.1:5000 in your browser
-
-# Or run individual algorithm modules:
-python prefix.py      # Prefix trie search
-python fuzzy_n-gram.py    # Fuzzy n-gram search
-python key.py         # Keyboard-aware search
-python sub-string-tri.py  # Substring/trigram search
-python double_metaphone.py  # Phonetic search
 ```
+
+Open [http://127.0.0.1:5000](http://127.0.0.1:5000) in your browser.
+
+**Development shortcut** (subset of the dataset for faster index builds):
+
+```bash
+python medicine_search_ui.py --limit 5000 --no-browser
+```
+
+### CLI modules
+
+Each search algorithm can be exercised independently:
+
+```bash
+python prefix.py
+python fuzzy_n-gram.py
+python key.py
+python sub-string-tri.py
+python double_metaphone.py
+python alternatives.py
+```
+
+---
+
+## Web UI
+
+1. **Search** — type a medicine name; suggestions update as you type.
+2. **Algorithm panels** — inspect which structure produced each hit.
+3. **Select a result** — view composition, pack size, price, and form.
+4. **Alternatives** — browse same-composition substitutes; toggle *Same form only*; results sorted cheapest first.
+
+### Search tips
+
+| Input | Best matched by |
+|-------|-----------------|
+| `aug` | Prefix (Trie) |
+| `asprin` | Keyboard DL / Fuzzy |
+| `*cillin*` | Substring (trigram) |
+| Misspelled brand | Double Metaphone |
+
+---
+
+## API
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/suggest?q=<query>` | Combined suggestions + per-algorithm results |
+| `GET /api/alternatives?name=<medicine>` | Price-ranked alternatives |
+| `GET /api/health` | Index load status |
+
+**Alternatives parameters**
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `name` | — | Selected medicine name (required) |
+| `limit` | `20` | Max results (cap 50) |
+| `same_form` | `1` | `1` = same form only; `0` = all forms |
+
+---
 
 ## Dataset
 
-The application uses `dataset/A_Z_medicines_dataset_of_India.csv` containing Indian medicine names.
+`dataset/A_Z_medicines_dataset_of_India.csv`
 
-## Files
+| Column | Description |
+|--------|-------------|
+| `id` | Unique record identifier |
+| `name` | Brand / product name |
+| `pack_size_label` | Pack description (also used for form detection) |
+| `short_composition1` | Primary active ingredient + strength |
+| `short_composition2` | Secondary ingredient + strength (if combo) |
+| `price` | Price in ₹ |
 
-| File | Description |
-|------|-------------|
-| `medicine_search_ui.py` | Flask web UI with autocomplete |
-| `search_engines.py` | Combined search engine orchestrator |
-| `prefix.py` | Trie-based prefix search |
-| `fuzzy_n-gram.py` | N-gram fuzzy search |
-| `key.py` | Keyboard-aware Damerau–Levenshtein search |
-| `sub-string-tri.py` | Trigram substring index |
-| `double_metaphone.py` | Double Metaphone phonetic search |
-| `paths.py` | Shared path configuration |
-| `templates/medicine_search.html` | UI template |
-| `static/medicine_search.js` | Frontend JavaScript |
-| `static/medicine_search.css` | Styling |
+---
+
+## Project structure
+
+```
+MedSearch/
+├── medicine_search_ui.py    # Flask application entry point
+├── search_engines.py        # Orchestrates all indexes & queries
+├── alternatives.py          # Composition signature index & alternative lookup
+├── prefix.py                # Trie prefix search
+├── fuzzy_n-gram.py          # N-gram fuzzy search
+├── key.py                   # Keyboard-aware Damerau–Levenshtein
+├── sub-string-tri.py        # Trigram substring search
+├── double_metaphone.py      # Phonetic search
+├── paths.py                 # Shared path configuration
+├── dataset/                 # Medicine CSV
+├── templates/               # HTML templates
+└── static/                  # CSS & JavaScript
+```
+
+Additional experimental modules (`fuzzy_bk-tree.py`, `phonetic_soundex.py`, `phonetic_metaphone.py`, `sub-string.py`) are included for standalone comparison and are not wired into the web UI by default.
+
+---
+
+## Architecture notes
+
+- All indexes are built in memory at startup (first run may take several minutes on the full dataset).
+- Stage 1 queries run in parallel via a thread pool (one worker per algorithm).
+- Stage 2 uses an inverted index keyed by a normalized `(salt, strength)` signature derived from `short_composition1` and `short_composition2`.
+- Form is inferred from `pack_size_label` and product name (tablet, capsule, syrup, injection, etc.).
+
+---
+
+## Disclaimer
+
+MedSearch is an academic / demonstration project. Alternative medicine suggestions are matched on dataset composition and strength fields only. **Always consult a qualified pharmacist or physician before substituting medicines.**
+
+---
+
+## License
+
+This project is intended for educational use. Dataset rights remain with the original source.
