@@ -91,6 +91,60 @@ def format_form_label(form: str) -> str:
     return form.capitalize()
 
 
+def format_price_inr(price: float) -> str:
+    return f"₹{price:.2f}"
+
+
+def compute_savings(
+    selected: MedicineMeta,
+    pool: list[MedicineMeta],
+) -> dict | None:
+    """Cheapest priced alternative vs selected; None if savings not computable."""
+    if selected.price is None or not pool:
+        return None
+
+    cheapest: MedicineMeta | None = None
+    for meta in pool:
+        if meta.price is not None:
+            cheapest = meta
+            break
+
+    if cheapest is None or cheapest.price is None:
+        return None
+
+    if cheapest.price >= selected.price:
+        return {
+            "available": False,
+            "reason": "already_cheapest",
+            "cheapest_name": selected.name,
+            "cheapest_price": selected.price,
+            "cheapest_price_display": format_price_inr(selected.price),
+            "selected_price": selected.price,
+            "selected_price_display": format_price_inr(selected.price),
+            "amount": 0.0,
+            "amount_display": format_price_inr(0.0),
+            "percent": 0.0,
+            "percent_display": "0%",
+        }
+
+    amount = selected.price - cheapest.price
+    percent = (amount / selected.price) * 100 if selected.price > 0 else 0.0
+
+    return {
+        "available": True,
+        "reason": "cheaper_alternative",
+        "cheapest_name": cheapest.name,
+        "cheapest_price": cheapest.price,
+        "cheapest_price_display": format_price_inr(cheapest.price),
+        "selected_price": selected.price,
+        "selected_price_display": format_price_inr(selected.price),
+        "amount": round(amount, 2),
+        "amount_display": format_price_inr(amount),
+        "percent": round(percent, 1),
+        "percent_display": f"{round(percent, 1)}%",
+    }
+
+
 def parse_bool(value: object, default: bool = True) -> bool:
     if value is None:
         return default
@@ -176,7 +230,7 @@ class AlternativeIndex:
             "pack_size_label": meta.pack_size_label,
             "composition": meta.composition_display,
             "price": meta.price,
-            "price_display": f"₹{meta.price:.2f}" if meta.price is not None else "",
+            "price_display": format_price_inr(meta.price) if meta.price is not None else "",
             "form": meta.form,
             "form_label": format_form_label(meta.form),
             "match": "exact",
@@ -211,6 +265,7 @@ class AlternativeIndex:
                 "alternatives": [],
                 "total_alternatives": 0,
                 "total_matching_form": 0,
+                "savings": None,
             }
 
         if not selected.signature:
@@ -220,7 +275,7 @@ class AlternativeIndex:
                 "composition": selected.composition_display,
                 "pack_size_label": selected.pack_size_label,
                 "price": selected.price,
-                "price_display": f"₹{selected.price:.2f}"
+                "price_display": format_price_inr(selected.price)
                 if selected.price is not None
                 else "",
                 "form": selected.form,
@@ -229,6 +284,7 @@ class AlternativeIndex:
                 "alternatives": [],
                 "total_alternatives": 0,
                 "total_matching_form": 0,
+                "savings": None,
             }
 
         hits = self.by_signature.get(selected.signature, [])
@@ -246,6 +302,7 @@ class AlternativeIndex:
         pool.sort(key=self._sort_key)
 
         alternatives = [self._meta_to_item(meta) for meta in pool[:limit]]
+        savings = compute_savings(selected, pool)
 
         return {
             "selected": selected.name,
@@ -253,7 +310,7 @@ class AlternativeIndex:
             "composition": selected.composition_display,
             "pack_size_label": selected.pack_size_label,
             "price": selected.price,
-            "price_display": f"₹{selected.price:.2f}"
+            "price_display": format_price_inr(selected.price)
             if selected.price is not None
             else "",
             "form": selected.form,
@@ -262,6 +319,7 @@ class AlternativeIndex:
             "alternatives": alternatives,
             "total_alternatives": len(all_candidates),
             "total_matching_form": len(form_candidates),
+            "savings": savings,
         }
 
 

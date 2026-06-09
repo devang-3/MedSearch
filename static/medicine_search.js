@@ -12,6 +12,10 @@
   const selectedPriceEl = document.getElementById("selectedPrice");
   const selectedFormLabelEl = document.getElementById("selectedFormLabel");
   const sameFormFilter = document.getElementById("sameFormFilter");
+  const savingsCard = document.getElementById("savingsCard");
+  const savingsAmountEl = document.getElementById("savingsAmount");
+  const savingsDetailEl = document.getElementById("savingsDetail");
+  const savingsCta = document.getElementById("savingsCta");
   const altCountEl = document.getElementById("altCount");
   const alternativesList = document.getElementById("alternativesList");
 
@@ -83,6 +87,7 @@
     alternativesPanel.hidden = true;
     altRequestId++;
     selectedMedicineName = "";
+    hideSavingsCard();
   }
 
   function formatPriceDisplay(priceDisplay, price) {
@@ -93,6 +98,55 @@
     return "";
   }
 
+  function hideSavingsCard() {
+    if (!savingsCard) return;
+    savingsCard.hidden = true;
+    savingsCard.classList.remove("savings-card--active", "savings-card--neutral");
+    if (savingsCta) {
+      savingsCta.hidden = true;
+      savingsCta.dataset.name = "";
+    }
+  }
+
+  function renderSavingsCard(data) {
+    if (!savingsCard) return;
+    const savings = data.savings;
+    if (!savings) {
+      hideSavingsCard();
+      return;
+    }
+
+    savingsCard.hidden = false;
+    savingsCard.classList.remove("savings-card--active", "savings-card--neutral");
+
+    if (savings.available) {
+      savingsCard.classList.add("savings-card--active");
+      savingsAmountEl.textContent = `${savings.amount_display} (${savings.percent_display})`;
+      savingsDetailEl.innerHTML =
+        `You selected <strong>${escapeHtml(data.selected)}</strong> at ` +
+        `<strong>${escapeHtml(savings.selected_price_display)}</strong>. ` +
+        `Cheapest same-composition alternative: ` +
+        `<strong>${escapeHtml(savings.cheapest_name)}</strong> at ` +
+        `<strong>${escapeHtml(savings.cheapest_price_display)}</strong>.`;
+      if (savingsCta) {
+        savingsCta.hidden = false;
+        savingsCta.dataset.name = savings.cheapest_name;
+      }
+      return;
+    }
+
+    if (savings.reason === "already_cheapest") {
+      savingsCard.classList.add("savings-card--neutral");
+      savingsAmountEl.textContent = "Already the lowest priced option";
+      savingsDetailEl.textContent =
+        `${data.selected} is among the cheapest alternatives at ${savings.selected_price_display} for this composition.`;
+      if (savingsCta) savingsCta.hidden = true;
+      return;
+    }
+
+    hideSavingsCard();
+  }
+
   function renderAlternatives(data) {
     if (!data.found) {
       selectedNameEl.textContent = data.selected;
@@ -100,6 +154,7 @@
       selectedPackEl.textContent = "";
       selectedPriceEl.textContent = "";
       selectedFormLabelEl.textContent = "—";
+      hideSavingsCard();
       altCountEl.textContent = "";
       alternativesList.innerHTML = "";
       alternativesPanel.hidden = false;
@@ -119,6 +174,7 @@
     if (sameFormFilter) {
       sameFormFilter.checked = data.same_form !== false;
     }
+    renderSavingsCard(data);
 
     const total = data.same_form
       ? (data.total_matching_form ?? data.alternatives.length)
@@ -160,6 +216,7 @@
     selectedCompositionEl.textContent = "Loading alternatives…";
     selectedPackEl.textContent = "";
     selectedPriceEl.textContent = "";
+    hideSavingsCard();
     altCountEl.textContent = "";
     alternativesList.innerHTML = "";
 
@@ -300,6 +357,22 @@
       fetchAlternatives(selectedMedicineName);
     }
   });
+
+  if (savingsCta) {
+    savingsCta.addEventListener("click", () => {
+      const name = savingsCta.dataset.name;
+      if (!name) return;
+      const items = alternativesList.querySelectorAll("li[data-name]");
+      let target = null;
+      items.forEach((li) => {
+        if (!target && li.dataset.name === name) target = li;
+      });
+      if (!target) return;
+      target.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      target.classList.add("highlight-flash");
+      setTimeout(() => target.classList.remove("highlight-flash"), 1200);
+    });
+  }
 
   document.addEventListener("click", (e) => {
     if (!searchBox.contains(e.target)) {

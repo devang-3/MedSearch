@@ -278,6 +278,97 @@ body {
   color: var(--muted);
 }
 
+.savings-card {
+  background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
+  border: 1px solid #86efac;
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 8px 24px rgba(5, 150, 105, 0.12);
+}
+
+.savings-card--neutral {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-color: var(--border);
+  box-shadow: var(--shadow);
+}
+
+.savings-eyebrow {
+  margin: 0 0 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #059669;
+}
+
+.savings-card--neutral .savings-eyebrow {
+  color: var(--muted);
+}
+
+.savings-amount {
+  margin: 0 0 8px;
+  font-size: 1.65rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #047857;
+}
+
+.savings-card--neutral .savings-amount {
+  font-size: 1.05rem;
+  color: var(--text);
+}
+
+.savings-detail {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: #14532d;
+}
+
+.savings-card--neutral .savings-detail {
+  color: var(--muted);
+}
+
+.savings-detail strong {
+  color: #065f46;
+  font-weight: 600;
+}
+
+.savings-card--neutral .savings-detail strong {
+  color: var(--text);
+}
+
+.savings-cta {
+  margin-top: 12px;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #fff;
+  background: #059669;
+  cursor: pointer;
+}
+
+.savings-cta:hover {
+  background: #047857;
+}
+
+.alternatives-list li.highlight-flash {
+  animation: savings-flash 1.2s ease;
+}
+
+@keyframes savings-flash {
+  0%,
+  100% {
+    background: transparent;
+  }
+  30% {
+    background: #d1fae5;
+  }
+}
+
 .alt-title {
   margin-top: 8px;
 }
