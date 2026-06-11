@@ -21,3 +21,12 @@ Thumbs.db
 
 # Local notes
 ideas.txt
+
+# Trained bandit policy (regenerate via eval/train_bandit_loop.py)
+policy/state.json
+
+# Generated eval outputs (regenerate via eval/run_baseline.py / train_bandit_loop.py)
+eval/results.json
+
+# Contextual Bandit Plan (optional)
+CONTEXTUAL_BANDIT_PLAN.md
