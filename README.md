@@ -112,7 +112,7 @@ python alternatives.py
 
 | Endpoint | Description |
 |----------|-------------|
-| `GET /api/suggest?q=<query>` | Combined suggestions + per-algorithm results |
+| `GET /api/suggest?q=<query>` | Combined suggestions + per-algorithm results (LinUCB merge when policy loaded) |
 | `GET /api/alternatives?name=<medicine>` | Price-ranked alternatives |
 | `GET /api/health` | Index load status |
 
@@ -123,6 +123,15 @@ python alternatives.py
 | `name` | — | Selected medicine name (required) |
 | `limit` | `20` | Max results (cap 50) |
 | `same_form` | `1` | `1` = same form only; `0` = all forms |
+
+**Suggest parameters**
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `merge` | `auto` | `auto` \| `fixed` \| `linucb` \| `balanced` |
+| `debug` | `0` | `1` = include merge arm + feature vector in response |
+
+Train policy first (`eval/train_bandit_loop.py`); live UI loads `policy/state.json` automatically.
 
 ---
 
@@ -153,6 +162,8 @@ MedSearch/
 ├── key.py                   # Keyboard-aware Damerau–Levenshtein
 ├── sub-string-tri.py        # Trigram substring search
 ├── double_metaphone.py      # Phonetic search
+├── policy/                  # LinUCB merge policy (features, rank, state.json)
+├── eval/                    # Typo benchmark + train/eval scripts
 ├── paths.py                 # Shared path configuration
 ├── dataset/                 # Medicine CSV
 ├── templates/               # HTML templates
@@ -169,6 +180,23 @@ Additional experimental modules (`fuzzy_bk-tree.py`, `phonetic_soundex.py`, `pho
 - Stage 1 queries run in parallel via a thread pool (one worker per algorithm).
 - Stage 2 uses an inverted index keyed by a normalized `(salt, strength)` signature derived from `short_composition1` and `short_composition2`.
 - Form is inferred from `pack_size_label` and product name (tablet, capsule, syrup, injection, etc.).
+
+---
+
+## Automated bandit training (offline)
+
+Oracle-labeled typo benchmark + LinUCB training loop — no UI clicks required.
+
+```bash
+pip install -r requirements-search.txt
+
+python eval/build_typo_benchmark.py --limit 5000
+python eval/run_baseline.py --limit 5000 --policy fixed
+python eval/train_bandit_loop.py --limit 5000 --episodes 2000
+python eval/run_baseline.py --limit 5000 --policy linucb
+```
+
+See [`eval/README.md`](eval/README.md) and [`CONTEXTUAL_BANDIT_PLAN.md`](CONTEXTUAL_BANDIT_PLAN.md) for architecture and resume metrics.
 
 ---
 
