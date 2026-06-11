@@ -41,11 +41,19 @@ def api_suggest():
     query = request.args.get("q", "")
     per_algo = min(int(request.args.get("per_algo", 8)), 15)
     combined_limit = min(int(request.args.get("combined", 10)), 15)
+    merge = request.args.get("merge", "").strip() or None
+    debug = parse_bool(request.args.get("debug"), default=False)
 
     if not query.strip():
         return jsonify({"query": "", "combined": [], "algorithms": {}})
 
-    data = engines.search_all(query, per_algo=per_algo, combined_limit=combined_limit)
+    data = engines.search_all(
+        query,
+        per_algo=per_algo,
+        combined_limit=combined_limit,
+        merge=merge,
+        debug=debug,
+    )
     return jsonify(data)
 
 
@@ -66,7 +74,16 @@ def api_alternatives():
 
 @app.route("/api/health")
 def health():
-    return jsonify({"ok": engines is not None})
+    if engines is None:
+        return jsonify({"ok": False})
+    return jsonify(
+        {
+            "ok": True,
+            "merge_mode": engines.merge_mode,
+            "linucb_loaded": engines.bandit is not None,
+            "linucb_updates": engines.bandit.total_updates if engines.bandit else 0,
+        }
+    )
 
 
 def main():
@@ -82,6 +99,12 @@ def main():
         default=0,
         help="Use only first N medicines (faster dev test; 0 = full dataset)",
     )
+    parser.add_argument(
+        "--merge",
+        choices=("auto", "fixed", "linucb", "balanced"),
+        default="auto",
+        help="Combined ranking: auto=LinUCB if policy/state.json exists else fixed",
+    )
     args = parser.parse_args()
 
     print("Building search indexes (first run may take several minutes)...")
@@ -92,7 +115,7 @@ def main():
         prefix_mod = _load_module("prefix", "prefix.py")
         names = prefix_mod.load_medicines_from_csv(DATASET_PATH)[: args.limit]
         print(f"  (--limit {args.limit} names only)")
-    engines = SearchEngines.build(names)
+    engines = SearchEngines.build(names, merge_mode=args.merge)
 
     url = f"http://{args.host}:{args.port}"
     print(f"Open {url}")

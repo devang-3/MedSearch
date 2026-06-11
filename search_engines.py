@@ -5,10 +5,13 @@ import importlib.util
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from alternatives import AlternativeIndex
-from paths import BASE_DIR, DATASET_PATH
+from paths import BASE_DIR, DATASET_PATH, POLICY_STATE_PATH
+from policy.bandit import LinUCBPolicy, load_policy
+from policy.merge import rank_with_policy, resolve_merge_mode
 
 
 def _load_module(module_name: str, filename: str):
@@ -32,10 +35,18 @@ class SearchEngines:
     substring: Any
     dmetaphone: Any
     alternatives: AlternativeIndex
+    merge_mode: str = "auto"
+    bandit: LinUCBPolicy | None = None
     _pool: ThreadPoolExecutor = field(default_factory=lambda: ThreadPoolExecutor(max_workers=5))
 
     @classmethod
-    def build(cls, names: list[str] | None = None) -> "SearchEngines":
+    def build(
+        cls,
+        names: list[str] | None = None,
+        *,
+        merge_mode: str = "auto",
+        policy_path: Path | None = None,
+    ) -> "SearchEngines":
         if names is None:
             prefix_mod = _load_module("prefix", "prefix.py")
             names = prefix_mod.load_medicines_from_csv(DATASET_PATH)
@@ -65,6 +76,14 @@ class SearchEngines:
         print("  [6/6] Alternatives index (composition)...", flush=True)
         alt_idx = AlternativeIndex.build(DATASET_PATH, name_filter=names)
 
+        bandit: LinUCBPolicy | None = None
+        state_path = policy_path or POLICY_STATE_PATH
+        if state_path.exists():
+            bandit = load_policy(state_path)
+            print(f"  Loaded LinUCB policy ({bandit.total_updates} updates).", flush=True)
+
+        resolved = resolve_merge_mode(merge_mode, policy_available=bandit is not None)
+        print(f"  Merge mode: {resolved}", flush=True)
         print("All search engines ready.\n", flush=True)
         return cls(
             names=names,
@@ -75,6 +94,8 @@ class SearchEngines:
             substring=sub_idx,
             dmetaphone=dm_idx,
             alternatives=alt_idx,
+            merge_mode=resolved if merge_mode != "auto" else merge_mode,
+            bandit=bandit,
         )
 
     def _display_name(self, name: str) -> str:
@@ -124,7 +145,15 @@ class SearchEngines:
             for code, pri, n in raw
         ]
 
-    def search_all(self, query: str, per_algo: int = 8, combined_limit: int = 10) -> dict:
+    def search_all(
+        self,
+        query: str,
+        per_algo: int = 8,
+        combined_limit: int = 10,
+        *,
+        merge: str | None = None,
+        debug: bool = False,
+    ) -> dict:
         q = query.strip()
         if not q:
             return {"query": "", "combined": [], "algorithms": {}}
@@ -146,37 +175,34 @@ class SearchEngines:
                 results[key] = []
                 results[f"_{key}_error"] = str(exc)
 
-        combined: list[dict] = []
-        seen: set[str] = set()
-        order = ["prefix", "fuzzy_ngram", "keyboard_dl", "double_metaphone", "substring"]
-        labels = {
-            "prefix": "Prefix",
-            "fuzzy_ngram": "Fuzzy n-gram",
-            "keyboard_dl": "Keyboard DL",
-            "double_metaphone": "Double Metaphone",
-            "substring": "Substring (trigram)",
-        }
-
-        for key in order:
-            for item in results.get(key, []):
-                name = item["name"]
-                if name in seen:
-                    continue
-                seen.add(name)
-                combined.append(
-                    {
-                        "name": name,
-                        "detail": item.get("detail", ""),
-                        "source": labels[key],
-                    }
-                )
-                if len(combined) >= combined_limit:
-                    break
-            if len(combined) >= combined_limit:
-                break
-
         clean_algos = {k: v for k, v in results.items() if not k.startswith("_")}
-        return {"query": q, "combined": combined, "algorithms": clean_algos}
+
+        mode_request = merge if merge is not None else self.merge_mode
+        mode = resolve_merge_mode(mode_request, policy_available=self.bandit is not None)
+
+        combined, merge_meta = rank_with_policy(
+            q,
+            clean_algos,
+            mode=mode,
+            bandit=self.bandit,
+            explore=False,
+            combined_limit=combined_limit,
+            include_features=debug,
+        )
+
+        payload: dict[str, Any] = {
+            "query": q,
+            "combined": combined,
+            "algorithms": clean_algos,
+            "merge": {
+                "mode": mode,
+                "arm": merge_meta.get("arm"),
+                "arm_name": merge_meta.get("arm_name"),
+            },
+        }
+        if debug and "features" in merge_meta:
+            payload["merge"]["features"] = merge_meta["features"]
+        return payload
 
     def find_alternatives(
         self,

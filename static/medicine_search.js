@@ -261,6 +261,11 @@
       });
 
       const total = (data.combined || []).length;
+      const mergeInfo = data.merge;
+      const mergeNote =
+        mergeInfo && mergeInfo.arm_name
+          ? ` · merge: ${mergeInfo.mode} (${mergeInfo.arm_name})`
+          : "";
       if (!q.trim()) {
         algoPanels.hidden = true;
         setStatus("Type to search — suggestions update as you type.");
@@ -268,8 +273,8 @@
         algoPanels.hidden = false;
         setStatus(
           total
-            ? `${total} combined suggestion(s) for “${data.query}”`
-            : `No matches for “${data.query}”`
+            ? `${total} combined suggestion(s) for “${data.query}”${mergeNote}`
+            : `No matches for “${data.query}”${mergeNote}`
         );
       }
     } catch (err) {
