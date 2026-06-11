@@ -141,10 +141,21 @@ def generate_typo(word: str, typo_type: str, rng: random.Random) -> str | None:
     return None
 
 
+def build_brand_buckets(all_brands: list[str]) -> dict[tuple[str, int], list[str]]:
+    """Group brands by (first char, length) for fast ambiguity checks."""
+    buckets: dict[tuple[str, int], list[str]] = {}
+    for brand in all_brands:
+        if not brand:
+            continue
+        key = (brand[0], len(brand))
+        buckets.setdefault(key, []).append(brand)
+    return buckets
+
+
 def is_ambiguous(
     typo: str,
     target_brand: str,
-    all_brands: list[str],
+    brand_buckets: dict[tuple[str, int], list[str]],
     max_dist: int = 2,
 ) -> bool:
     """Drop typo if another brand is equally or closer in edit distance."""
@@ -153,16 +164,16 @@ def is_ambiguous(
         return True
 
     typo_len = len(typo)
-    for other in all_brands:
-        if other == target_brand:
-            continue
-        if abs(len(other) - typo_len) > max_dist + 1:
-            continue
-        other_dl = damerau_levenshtein(typo, other, max_dist=max_dist + 1)
-        if other_dl < target_dl:
-            return True
-        if other_dl == target_dl and other < target_brand:
-            return True
+    first = target_brand[0] if target_brand else ""
+    for length in range(typo_len - max_dist - 1, typo_len + max_dist + 2):
+        for other in brand_buckets.get((first, length), ()):
+            if other == target_brand:
+                continue
+            other_dl = damerau_levenshtein(typo, other, max_dist=max_dist + 1)
+            if other_dl < target_dl:
+                return True
+            if other_dl == target_dl and other < target_brand:
+                return True
     return False
 
 
@@ -180,6 +191,7 @@ def build_benchmark(
 ) -> list[dict]:
     brand_index = build_brand_index(names)
     all_brands = sorted(brand_index.keys())
+    brand_buckets = build_brand_buckets(all_brands)
 
     targets: list[str] = []
     seen_targets: set[str] = set()
@@ -214,7 +226,7 @@ def build_benchmark(
                 continue
             if typo in seen_queries:
                 continue
-            if is_ambiguous(typo, brand, all_brands):
+            if is_ambiguous(typo, brand, brand_buckets):
                 continue
 
             seen_queries.add(typo)
@@ -254,7 +266,7 @@ def main() -> None:
     rng = random.Random(args.seed)
     max_names = args.limit if args.limit > 0 else None
     names = load_medicine_names(args.dataset, max_names=max_names)
-    print(f"Loaded {len(names):,} medicine names.")
+    print(f"Loaded {len(names):,} medicine names.", flush=True)
 
     pairs = build_benchmark(
         names,

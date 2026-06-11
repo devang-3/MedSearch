@@ -110,6 +110,11 @@ def main() -> None:
     parser.add_argument("--reward-mode", choices=("graded", "binary", "mrr"), default="graded")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--resume", action="store_true", help="Load existing policy state")
+    parser.add_argument(
+        "--fresh",
+        action="store_true",
+        help="Train from scratch (ignore existing policy/state.json)",
+    )
     parser.add_argument("--log-every", type=int, default=200)
     args = parser.parse_args()
 
@@ -149,9 +154,14 @@ def main() -> None:
         f"MRR={bm['mrr_pct']}%\n"
     )
 
-    policy = load_policy(args.state) if args.resume and args.state.exists() else LinUCBPolicy()
-    if args.resume and args.state.exists():
+    if args.fresh:
+        policy = LinUCBPolicy()
+        print("Training fresh LinUCB policy (ignoring saved state).\n")
+    elif args.resume and args.state.exists():
+        policy = load_policy(args.state)
         print(f"Resumed policy from {args.state} ({policy.total_updates} prior updates)\n")
+    else:
+        policy = LinUCBPolicy()
 
     print(f"=== Training LinUCB ({args.episodes} episodes) ===")
     t_train = time.perf_counter()
