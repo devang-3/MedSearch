@@ -30,3 +30,6 @@ eval/results.json
 
 # Contextual Bandit Plan (optional)
 CONTEXTUAL_BANDIT_PLAN.md
+
+# Generated typo benchmark (regenerate via eval/build_typo_benchmark.py)
+typo_benchmark.jsonl

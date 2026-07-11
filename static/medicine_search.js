@@ -30,6 +30,7 @@
   let debounceTimer = null;
   let activeIndex = -1;
   let lastCombined = [];
+  let lastAlgorithms = {};
   let requestId = 0;
   let altRequestId = 0;
   let selectedMedicineName = "";
@@ -208,6 +209,33 @@
     alternativesPanel.hidden = false;
   }
 
+  function logSelection(name, rank, source) {
+    const entry = {
+      query: input.value.trim(),
+      selected: name,
+      rank: rank,
+      source: source,
+      suggestions: lastCombined.map(function (item) { return item.name; }),
+      timestamp: new Date().toISOString(),
+    };
+
+    fetch("/api/history", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(entry),
+    }).catch(function (err) {
+      console.error("Failed to log selection:", err);
+    });
+  }
+
+  function applySelection(name, rank, source) {
+    input.value = name;
+    combinedList.hidden = true;
+    clearBtn.hidden = false;
+    fetchAlternatives(name);
+    logSelection(name, rank || -1, source || "unknown");
+  }
+
   async function fetchAlternatives(name) {
     selectedMedicineName = name;
     const id = ++altRequestId;
@@ -238,13 +266,6 @@
     }
   }
 
-  function applySelection(name) {
-    input.value = name;
-    combinedList.hidden = true;
-    clearBtn.hidden = false;
-    fetchAlternatives(name);
-  }
-
   async function fetchSuggestions(q) {
     const id = ++requestId;
     setStatus("Searching…", true);
@@ -255,12 +276,15 @@
       const data = await res.json();
       if (id !== requestId) return;
 
-      renderCombined(data.combined || []);
+      lastCombined = data.combined || [];
+      lastAlgorithms = data.algorithms || {};
+
+      renderCombined(lastCombined);
       ALGO_IDS.forEach((key) => {
-        renderAlgoPanel(key, (data.algorithms && data.algorithms[key]) || []);
+        renderAlgoPanel(key, lastAlgorithms[key] || []);
       });
 
-      const total = (data.combined || []).length;
+      const total = lastCombined.length;
       const mergeInfo = data.merge;
       const mergeNote =
         mergeInfo && mergeInfo.arm_name
@@ -273,8 +297,8 @@
         algoPanels.hidden = false;
         setStatus(
           total
-            ? `${total} combined suggestion(s) for “${data.query}”${mergeNote}`
-            : `No matches for “${data.query}”${mergeNote}`
+            ? `${total} combined suggestion(s) for "${data.query}"${mergeNote}`
+            : `No matches for "${data.query}"${mergeNote}`
         );
       }
     } catch (err) {
@@ -314,7 +338,7 @@
       activeIndex = Math.max(activeIndex - 1, 0);
     } else if (e.key === "Enter" && activeIndex >= 0) {
       e.preventDefault();
-      applySelection(lastCombined[activeIndex].name);
+      applySelection(lastCombined[activeIndex].name, activeIndex + 1, "dropdown");
       return;
     } else if (e.key === "Escape") {
       combinedList.hidden = true;
@@ -332,14 +356,15 @@
   combinedList.addEventListener("click", (e) => {
     const li = e.target.closest("li[role=option]");
     if (!li) return;
-    applySelection(li.dataset.name);
+    const idx = parseInt(li.dataset.index, 10);
+    applySelection(li.dataset.name, idx + 1, "dropdown");
   });
 
   document.querySelectorAll(".panel-list").forEach((ul) => {
     ul.addEventListener("click", (e) => {
       const li = e.target.closest("li[data-name]");
       if (!li || li.classList.contains("empty")) return;
-      applySelection(li.dataset.name);
+      applySelection(li.dataset.name, -1, "algo_panel");
     });
   });
 
@@ -354,7 +379,7 @@
   alternativesList.addEventListener("click", (e) => {
     const li = e.target.closest("li[data-name]");
     if (!li || li.classList.contains("empty")) return;
-    applySelection(li.dataset.name);
+    applySelection(li.dataset.name, -1, "alternatives");
   });
 
   sameFormFilter.addEventListener("change", () => {

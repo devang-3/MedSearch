@@ -7,10 +7,14 @@ Usage:
     python medicine_search_ui.py
 
 Then open http://127.0.0.1:5000
+
+Search and selection history is saved to history.json for retraining.
 """
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import webbrowser
 from pathlib import Path
 
@@ -20,12 +24,23 @@ from alternatives import parse_bool
 from search_engines import SearchEngines
 
 APP_DIR = Path(__file__).resolve().parent
+HISTORY_PATH = APP_DIR / "history.json"
 app = Flask(
     __name__,
     template_folder=str(APP_DIR / "templates"),
     static_folder=str(APP_DIR / "static"),
 )
 engines: SearchEngines | None = None
+
+
+def _load_history() -> list[dict]:
+    if HISTORY_PATH.exists():
+        try:
+            with open(HISTORY_PATH, encoding="utf-8") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError):
+            return []
+    return []
 
 
 @app.route("/")
@@ -86,6 +101,29 @@ def health():
     )
 
 
+@app.route("/api/history", methods=["GET"])
+def get_history():
+    return jsonify(_load_history())
+
+
+@app.route("/api/history", methods=["POST"])
+def save_history():
+    try:
+        entry = request.get_json()
+        if not entry:
+            return jsonify({"error": "No data provided"}), 400
+
+        history = _load_history()
+        history.append(entry)
+
+        with open(HISTORY_PATH, "w", encoding="utf-8") as f:
+            json.dump(history, f, indent=2, ensure_ascii=False)
+
+        return jsonify({"status": "ok", "count": len(history)}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 def main():
     global engines
 
@@ -116,6 +154,9 @@ def main():
         names = prefix_mod.load_medicines_from_csv(DATASET_PATH)[: args.limit]
         print(f"  (--limit {args.limit} names only)")
     engines = SearchEngines.build(names, merge_mode=args.merge)
+
+    history = _load_history()
+    print(f"  Loaded {len(history)} previous search+selection records from history.json.")
 
     url = f"http://{args.host}:{args.port}"
     print(f"Open {url}")
